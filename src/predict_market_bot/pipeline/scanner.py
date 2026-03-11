@@ -38,12 +38,14 @@ class MarketScanner:
         min_liquidity: float | None = None,
         min_volume: float | None = None,
         scan_limit: int | None = None,
+        exclude_tag_id: int | None = None,
         spread_anomaly_threshold: float = 0.10,
         volume_spike_factor: float = 3.0,
     ) -> None:
         self.min_liquidity = min_liquidity or settings.min_liquidity
         self.min_volume = min_volume or settings.min_volume
         self.scan_limit = scan_limit or settings.scan_limit
+        self.exclude_tag_id = exclude_tag_id or settings.exclude_tag_id
         self.spread_anomaly_threshold = spread_anomaly_threshold
         self.volume_spike_factor = volume_spike_factor
 
@@ -100,7 +102,11 @@ class MarketScanner:
                     "active": "true",
                     "limit": limit,
                     "offset": offset,
+                    "liquidity_min": str(int(self.min_liquidity)),
+                    "volume_min": str(int(self.min_volume)),
                 }
+                if self.exclude_tag_id:
+                    params["exclude_tag_id"] = str(self.exclude_tag_id)
 
                 url = f"{self._gamma_base}{_GAMMA_EVENTS_PATH}"
                 

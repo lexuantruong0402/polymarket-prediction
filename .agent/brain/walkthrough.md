@@ -82,6 +82,24 @@ Total: 74 passed in 5.62s
 1. **Keyword-Based Search**: Researcher now transforms long market questions (e.g., "Will ... by ...?") into clean keyword queries to maximize NewsAPI relevancy.
 2. **Relevance Gating**: Signals with relevance < 0.3 are ignored during sentiment aggregation to prevent noise from unrelated news.
 3. **Timezone-Aware Timestamps**: Unified all models to use `datetime.now(timezone.utc)` for consistent logging across distributed sources.
+## 5. Data Persistence (Mock Data Creation)
+
+To avoid repeated API calls, you can now save real-world historical data into a local JSON file to be reused as mock data.
+
+### [NEW] [export_historical_data.py](file:///home/truonglx1/predict/scripts/export_historical_data.py)
+This utility fetches the latest resolved markets from Polymarket and persists them to disk.
+
+```bash
+# Fetch 20 latest markets and save to data/historical_latest.json
+python3 scripts/export_historical_data.py 20 data/historical_latest.json
+```
+
+Once saved, move the file to the `data/` directory (if not already there) and run:
+```bash
+python3 scripts/run_backtest.py data/historical_latest.json
+```
+
+This allows for much faster iteration and repeatable tests without relying on the network.
 
 ## How to Run
 

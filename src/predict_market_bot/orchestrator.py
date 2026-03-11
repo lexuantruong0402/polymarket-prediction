@@ -29,14 +29,22 @@ class PipelineOrchestrator:
         Scan → Research → Predict → Risk → Execute → Compound
     """
 
-    def __init__(self) -> None:
-        # Pipeline stages
-        self.scanner = MarketScanner()
-        self.researcher = MarketResearcher()
-        self.predictor = MarketPredictor()
-        self.risk_manager = RiskManager()
-        self.executor = OrderExecutor()
-        self.knowledge_store = KnowledgeStore()
+    def __init__(
+        self,
+        scanner: MarketScanner | None = None,
+        researcher: MarketResearcher | None = None,
+        predictor: MarketPredictor | None = None,
+        risk_manager: RiskManager | None = None,
+        executor: OrderExecutor | None = None,
+        knowledge_store: KnowledgeStore | None = None,
+    ) -> None:
+        # Pipeline stages (injectable)
+        self.scanner = scanner or MarketScanner()
+        self.researcher = researcher or MarketResearcher()
+        self.predictor = predictor or MarketPredictor()
+        self.risk_manager = risk_manager or RiskManager()
+        self.executor = executor or OrderExecutor()
+        self.knowledge_store = knowledge_store or KnowledgeStore()
         self.compounder = TradeCompounder(self.knowledge_store)
 
         # State tracking

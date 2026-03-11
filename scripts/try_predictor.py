@@ -39,13 +39,13 @@ async def main():
     print(f"{'MARKET QUESTION':<35} | {'EDGE':<8} | {'CONF'}")
     print("-" * 50)
     
+    max_len = max([len(next(m.question for m in top_markets if m.id == p.market_id)) for p in predictions]) + 5
+
     for pred in predictions:
-        # Find original market to get question
         m = next(m for m in top_markets if m.id == pred.market_id)
-        q_short = (m.question[:32] + '..') if len(m.question) > 32 else m.question
-        print(f"{q_short:<35} | {pred.edge:>+7.2%} | {pred.confidence:.2f}")
-    
-    print("="*50)
+        print(f"{m.question:<{max_len}} | {pred.edge:>+7.2%} | {pred.confidence:.2f}")
+
+    print("=" * (max_len + 20))
 
 if __name__ == "__main__":
     # Ensure logs aren't too noisy for demo

@@ -39,6 +39,28 @@ predict-bot
 python -m predict_market_bot.orchestrator
 ```
 
+## Backtesting (Kiểm thử chiến thuật)
+
+Bot hỗ trợ 2 chế độ backtest để đánh giá hiệu quả trước khi trade thật:
+
+### 1. Mock Backtest (Dữ liệu tĩnh)
+Sử dụng dữ liệu mẫu có sẵn trong `data/historical_sample.json`. Chế độ này hữu ích để test logic pipeline và rủi ro nhanh chóng.
+
+```bash
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+python3 scripts/run_backtest.py
+```
+
+### 2. Real-World Backtest (Dữ liệu thực tế)
+Tự động lấy các thị trường đã kết thúc từ Polymarket và tìm kiếm tin tức lịch sử tương ứng qua NewsAPI để mô phỏng điều kiện thực tế.
+
+```bash
+export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+python3 scripts/run_real_backtest.py
+```
+
+*Lưu ý: Chế độ Real-World yêu cầu internet và `NEWS_API_KEY` hợp lệ.*
+
 ## Chạy Tests
 
 ```bash
@@ -83,12 +105,15 @@ src/predict_market_bot/
 │   └── formulas.py          # 12 trading math functions
 ├── pipeline/
 │   ├── scanner.py           # Stage 1 — quét thị trường
-│   ├── researcher.py        # Stage 2 — NLP + social data
+│   ├── researcher.py        # Stage 2 — NLP + social data (hỗ trợ historical)
 │   ├── predictor.py         # Stage 3 — XGBoost + LLM
 │   ├── risk_manager.py      # Stage 4 — 5 risk checks
-│   ├── executor.py          # Stage 5 — CLOB execution
-│   └── compounder.py        # Stage 6 — post-mortem
-├── orchestrator.py           # Pipeline coordinator
+│   ├── executor.py          # Stage 5 — CLOB execution (hoặc MockExecutor)
+│   ├── compounder.py        # Stage 6 — post-mortem
+│   ├── backtester.py        # Điều phối backtest engine
+│   ├── fetcher.py           # Nạp dữ liệu Polymarket history
+│   └── mocks.py             # Giả lập các Stage cho simulation
+├── orchestrator.py           # Pipeline coordinator (hỗ trợ DI)
 ├── knowledge/store.py        # JSON knowledge base
 └── utils/
     ├── logger.py             # Structured logging

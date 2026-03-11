@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
+
+# src/predict_market_bot/config/settings.py -> root is 4 levels up
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
+ENV_FILE = ROOT_DIR / ".env"
 
 
 class BotSettings(BaseSettings):
@@ -49,12 +56,13 @@ class BotSettings(BaseSettings):
     min_liquidity: float = Field(5_000.0, ge=0, description="Min market liquidity to pass scan")
     min_volume: float = Field(1_000.0, ge=0, description="Min 24h volume to pass scan")
     scan_limit: int = Field(300, gt=0, description="Max markets to fetch per scan")
+    exclude_tag_id: int | None = Field(1312, description="Tag ID to exclude from scan (e.g. 1312)")
 
     # ── Logging ─────────────────────────────────────────────────────────
     log_level: str = Field("INFO", description="Logging level")
     log_format: str = Field("json", description="Log output format (json | console)")
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": str(ENV_FILE), "env_file_encoding": "utf-8"}
 
 
 # Singleton — import and use directly

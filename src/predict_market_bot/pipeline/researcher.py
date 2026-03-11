@@ -16,18 +16,23 @@ logger = structlog.get_logger(__name__)
 class MarketResearcher:
     """Collect external signals and score sentiment for each market using NewsAPI."""
 
-    SOURCES = ("newsapi",)
+    SOURCES = ("newsapi", "google")
 
     def __init__(self) -> None:
         self.api_key = settings.news_api_key
 
     # ── Public API ───────────────────────────────────────────────────
 
-    async def research(self, markets: list[Market]) -> dict[str, list[Signal]]:
+    async def research(
+        self, 
+        markets: list[Market], 
+        reference_date: datetime | None = None
+    ) -> dict[str, list[Signal]]:
         """Gather signals for every market in parallel.
 
         Args:
             markets: Markets to research.
+            reference_date: Optional datetime to fetch historical signals (for backtesting).
 
         Returns:
             Mapping of market_id → list of signals.
@@ -35,9 +40,9 @@ class MarketResearcher:
         if not self.api_key:
             logger.warning("researcher_api_key_missing", status="using_mocks")
 
-        logger.info("research_started", market_count=len(markets))
+        logger.info("research_started", market_count=len(markets), historical=reference_date is not None)
 
-        tasks = [self._research_market(m) for m in markets]
+        tasks = [self._research_market(m, reference_date) for m in markets]
         results = await asyncio.gather(*tasks)
 
         signals_map: dict[str, list[Signal]] = {}
@@ -51,11 +56,12 @@ class MarketResearcher:
 
     # ── Per-market research ──────────────────────────────────────────
 
-    async def _research_market(self, market: Market) -> list[Signal]:
+    async def _research_market(self, market: Market, reference_date: datetime | None = None) -> list[Signal]:
         """Fan-out to sources for a single market.
 
         Args:
             market: The market to gather signals for.
+            reference_date: Optional date for historical fetching.
 
         Returns:
             Combined list of signals from all sources.
@@ -64,29 +70,46 @@ class MarketResearcher:
         if not self.api_key:
             return await self._fetch_mock(market)
 
-        tasks = [self._fetch_source(source, market) for source in self.SOURCES]
+        tasks = [self._fetch_source(source, market, reference_date) for source in self.SOURCES]
         nested = await asyncio.gather(*tasks)
         return [sig for group in nested for sig in group]
 
     # ── Source fetchers ──────────────────────────────────────────────
 
-    async def _fetch_source(self, source: str, market: Market) -> list[Signal]:
+    async def _fetch_source(
+        self, 
+        source: str, 
+        market: Market, 
+        reference_date: datetime | None = None
+    ) -> list[Signal]:
         """Fetch data from a single source and run NLP."""
         if source == "newsapi":
-            return await self._fetch_news_api(market)
+            return await self._fetch_news_api(market, reference_date)
+        if source == "google":
+            return await self._fetch_google_search(market, reference_date)
         return []
 
-    async def _fetch_news_api(self, market: Market) -> list[Signal]:
+    async def _fetch_news_api(self, market: Market, reference_date: datetime | None = None) -> list[Signal]:
         """Fetch relevant articles from NewsAPI.org."""
         query = self._extract_keywords(market.question)
         url = "https://newsapi.org/v2/everything"
-        params = {
+        params: dict[str, Any] = {
             "q": query,
             "sortBy": "relevancy",
             "pageSize": 5,
             "apiKey": self.api_key,
             "language": "en",
         }
+
+        # Handle historical range if reference_date is provided
+        if reference_date:
+            # Fetch news from 7 days before the reference date up to the reference date
+            # This ensures we don't use 'future' information in backtests
+            params["to"] = reference_date.isoformat()
+            from_date = reference_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Subtract 7 days (rough window)
+            from_ts = from_date.timestamp() - (7 * 24 * 3600)
+            params["from"] = datetime.fromtimestamp(from_ts, tz=timezone.utc).isoformat()
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
@@ -122,6 +145,47 @@ class MarketResearcher:
 
         except Exception as e:
             logger.error("newsapi_error", market_id=market.id, error=str(e))
+            return []
+
+    async def _fetch_google_search(self, market: Market, reference_date: datetime | None = None) -> list[Signal]:
+        """Fetch relevant results from web search (via DuckDuckGo) as fallback for Google."""
+        from ddgs import DDGS
+        
+        query = self._extract_keywords(market.question)
+        
+        def run_search() -> list[Any]:
+            with DDGS() as ddgs:
+                return list(ddgs.text(query, max_results=5))
+            
+        try:
+            results = await asyncio.to_thread(run_search)
+            signals = []
+            for result in results:
+                title_text = result.get('title', '')
+                desc_text = result.get('body', '')
+                url = result.get('href', '')
+                
+                text = f"{title_text}. {desc_text}"
+                sentiment = self._analyze_sentiment(text)
+                
+                relevance = 0.5
+                if query.lower() in title_text.lower():
+                    relevance = 0.9
+
+                signals.append(
+                    Signal(
+                        source="google",
+                        query=query,
+                        sentiment_score=sentiment,
+                        narrative=title_text or "No Title",
+                        relevance=relevance,
+                        timestamp=datetime.now(timezone.utc),
+                        metadata={"url": url, "description": desc_text},
+                    )
+                )
+            return signals
+        except Exception as e:
+            logger.error("google_search_error", market_id=market.id, error=str(e))
             return []
 
     async def _fetch_mock(self, market: Market) -> list[Signal]:
