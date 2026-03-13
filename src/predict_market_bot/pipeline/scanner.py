@@ -77,6 +77,41 @@ class MarketScanner:
 
         return annotated
 
+    async def fetch_by_slug(self, slug: str) -> list[Market]:
+        """Fetch a specific market event by its slug.
+
+        Args:
+            slug: The event slug from the Polymarket URL.
+
+        Returns:
+            List of Market objects for that event.
+        """
+        logger.info("fetching_by_slug", slug=slug)
+        url = f"{self._gamma_base}{_GAMMA_EVENTS_PATH}"
+        params = {"slug": slug}
+
+        async with httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT) as client:
+            try:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                events = resp.json()
+                if not events:
+                    logger.warning("no_event_found_for_slug", slug=slug)
+                    return []
+                
+                # Parse all markets in the event
+                all_markets = []
+                for event in events:
+                    all_markets.extend(self._parse_event(event))
+                
+                # Enrich spreads for these specific markets
+                enriched = await self._enrich_spreads(all_markets)
+                return enriched
+
+            except Exception as e:
+                logger.error("fetch_by_slug_failed", slug=slug, error=str(e), error_type=type(e).__name__)
+                return []
+
     # ── Polymarket Gamma API ─────────────────────────────────────────
 
     async def _fetch_markets(self) -> list[Market]:

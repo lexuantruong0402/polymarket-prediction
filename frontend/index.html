@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Polymarket Prediction Bot</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="container">
+        <header class="glass header fade-in">
+            <h1>Polymarket <span>Predictor</span></h1>
+            <p>High-fidelity prediction market pipeline analysis</p>
+        </header>
+
+        <section class="glass input-section slide-up">
+            <div class="input-group">
+                <input type="text" id="market-url" placeholder="Enter Polymarket Event URL..." autocomplete="off">
+                <button id="process-btn">
+                    <span class="btn-text">Process</span>
+                    <div class="loader-inner" style="display: none;"></div>
+                </button>
+            </div>
+            <p class="input-hint">Example: https://polymarket.com/event/will-the-fed-cut-rates-in-march</p>
+        </section>
+
+        <section id="pipeline-status" class="pipeline-status" style="display: none;">
+            <div class="glass timeline slide-up" style="animation-delay: 0.1s;">
+                <div class="timeline-step" id="step-SCAN">
+                    <div class="step-icon">1</div>
+                    <div class="step-info">
+                        <h3>Scan</h3>
+                        <p>Fetching market data...</p>
+                    </div>
+                    <div class="step-status"></div>
+                </div>
+                <div class="timeline-step" id="step-RESEARCH">
+                    <div class="step-icon">2</div>
+                    <div class="step-info">
+                        <h3>Research</h3>
+                        <p>Gathering sentiment & news...</p>
+                    </div>
+                    <div class="step-status"></div>
+                </div>
+                <div class="timeline-step" id="step-PREDICT">
+                    <div class="step-icon">3</div>
+                    <div class="step-info">
+                        <h3>Predict</h3>
+                        <p>Running ML calibration...</p>
+                    </div>
+                    <div class="step-status"></div>
+                </div>
+                <div class="timeline-step" id="step-RISK">
+                    <div class="step-icon">4</div>
+                    <div class="step-info">
+                        <h3>Risk</h3>
+                        <p>Evaluating exposure & Kelly...</p>
+                    </div>
+                    <div class="step-status"></div>
+                </div>
+                <div class="timeline-step" id="step-EXECUTE">
+                    <div class="step-icon">5</div>
+                    <div class="step-info">
+                        <h3>Execute</h3>
+                        <p>Simulating trade placement...</p>
+                    </div>
+                    <div class="step-status"></div>
+                </div>
+                <div class="timeline-step" id="step-COMPOUND">
+                    <div class="step-icon">6</div>
+                    <div class="step-info">
+                        <h3>Compound</h3>
+                        <p>Synthesizing insights...</p>
+                    </div>
+                    <div class="step-status"></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="results" class="results" style="display: none;">
+            <div class="glass results-card slide-up" style="animation-delay: 0.2s;">
+                <div class="results-header">
+                    <h2>Pipeline Result</h2>
+                    <span class="badge" id="result-status">Complete</span>
+                </div>
+                <div class="results-grid" id="results-content">
+                    <!-- Results will be injected here -->
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

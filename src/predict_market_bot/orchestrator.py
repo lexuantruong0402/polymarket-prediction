@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from typing import Any, Callable
 
 import structlog
 
@@ -56,8 +57,12 @@ class PipelineOrchestrator:
             daily_returns=[],
         )
 
-    async def run(self) -> dict:
+    async def run(self, slug: str | None = None, callback: Callable[[dict], Any] | None = None) -> dict:
         """Execute the full pipeline.
+
+        Args:
+            slug: Optional Polymarket slug to process a specific market.
+            callback: Optional async callback to report stage progress.
 
         Returns:
             Summary dict with stage counts and performance metrics.
@@ -66,25 +71,47 @@ class PipelineOrchestrator:
         setup_logging()
         logger = get_logger("orchestrator")
 
-        logger.info("pipeline_started", bankroll=settings.bankroll)
+        logger.info("pipeline_started", bankroll=settings.bankroll, slug=slug)
+
+        async def report_progress(stage: str, data: dict):
+            if callback:
+                payload = {"stage": stage, "data": data}
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(payload)
+                else:
+                    callback(payload)
 
         # ── Stage 1: Scan ────────────────────────────────────────────
         logger.info("stage", name="1/6 SCAN")
-        markets = await self.scanner.scan()
+        await report_progress("SCAN", {"status": "started", "slug": slug})
+        
+        if slug:
+            markets = await self.scanner.fetch_by_slug(slug)
+        else:
+            markets = await self.scanner.scan()
+
         if not markets:
             logger.warning("pipeline_aborted", reason="No markets passed scan filters")
+            await report_progress("SCAN", {"status": "aborted", "reason": "no_markets"})
             return {"aborted": True, "reason": "no_markets"}
+        
+        await report_progress("SCAN", {"status": "complete", "count": len(markets)})
 
         # ── Stage 2: Research ────────────────────────────────────────
         logger.info("stage", name="2/6 RESEARCH")
+        await report_progress("RESEARCH", {"status": "started"})
         signals_map = await self.researcher.research(markets)
+        await report_progress("RESEARCH", {"status": "complete", "signals": len(signals_map)})
 
         # ── Stage 3: Predict ─────────────────────────────────────────
         logger.info("stage", name="3/6 PREDICT")
+        await report_progress("PREDICT", {"status": "started"})
         predictions = await self.predictor.predict(markets, signals_map)
+        await report_progress("PREDICT", {"status": "complete", "predictions": len(predictions)})
+        
         if not predictions:
             logger.info("pipeline_complete", reason="No predictions above confidence threshold")
-            return {
+            summary = {
                 "markets_scanned": len(markets),
                 "predictions": 0,
                 "approved": 0,
@@ -93,9 +120,12 @@ class PipelineOrchestrator:
                 "insights_generated": 0,
                 "performance": self.tracker.summary(),
             }
+            await report_progress("COMPLETE", summary)
+            return summary
 
         # ── Stage 4: Risk ────────────────────────────────────────────
         logger.info("stage", name="4/6 RISK")
+        await report_progress("RISK", {"status": "started"})
         evaluated = self.risk_manager.evaluate_batch(predictions, self.portfolio)
         approved = [(pred, risk) for pred, risk in evaluated if risk.passed]
         rejected = [(pred, risk) for pred, risk in evaluated if not risk.passed]
@@ -105,10 +135,11 @@ class PipelineOrchestrator:
             approved=len(approved),
             rejected=len(rejected),
         )
+        await report_progress("RISK", {"status": "complete", "approved": len(approved), "rejected": len(rejected)})
 
         if not approved:
             logger.info("pipeline_complete", reason="All predictions rejected by risk checks")
-            return {
+            summary = {
                 "markets_scanned": len(markets),
                 "predictions": len(predictions),
                 "approved": 0,
@@ -117,18 +148,25 @@ class PipelineOrchestrator:
                 "insights_generated": 0,
                 "performance": self.tracker.summary(),
             }
+            await report_progress("COMPLETE", summary)
+            return summary
 
         # ── Stage 5: Execute ─────────────────────────────────────────
         logger.info("stage", name="5/6 EXECUTE")
+        await report_progress("EXECUTE", {"status": "started"})
         trade_results = await self.executor.execute_batch(approved)
 
         # Update portfolio state
         for result in trade_results:
             self.portfolio.current_exposure += result.order.size
+        
+        await report_progress("EXECUTE", {"status": "complete", "trades": len(trade_results)})
 
         # ── Stage 6: Compound ────────────────────────────────────────
         logger.info("stage", name="6/6 COMPOUND")
+        await report_progress("COMPOUND", {"status": "started"})
         insights = self.compounder.analyze(trade_results)
+        await report_progress("COMPOUND", {"status": "complete", "insights": len(insights)})
 
         # ── Summary ──────────────────────────────────────────────────
         summary = {
@@ -142,6 +180,7 @@ class PipelineOrchestrator:
         }
 
         logger.info("pipeline_complete", **summary)
+        await report_progress("COMPLETE", summary)
         return summary
 
 

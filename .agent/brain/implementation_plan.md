@@ -1,32 +1,51 @@
-# Phase 7: External API Integration — Market Predictor
+# Implementation Plan: Polymarket Prediction Bot Frontend
 
-This phase makes the `MarketPredictor` functional by integrating XGBoost for statistical inference and Google Gemini for expert-level probability calibration.
-
-## User Review Required
-
-> [!IMPORTANT]
-> **API Keys Required**: To use the LLM calibration, a **Google Gemini** API key is required. 
-> **XGBoost Model**: The system will look for a trained model at `data/models/xgboost_market_v1.json`. If not found, it will use a structured heuristic as a fallback.
+This plan outlines the creation of a web-based frontend for the Polymarket prediction bot, allowing users to input a market URL and see the evaluation process in real-time.
 
 ## Proposed Changes
 
-### [predict-market-bot]
+### Backend (Python/FastAPI)
 
-#### [MODIFY] [settings.py](file:///home/truonglx1/predict/src/predict_market_bot/config/settings.py)
-- Add `gemini_api_key` to `BotSettings`.
-- Add `xgboost_model_path` setting.
+#### [NEW] [api.py](file:///home/truonglx1/polymarket-prediction/src/predict_market_bot/api.py)
+- Implement a FastAPI server with an endpoint `/process`.
+- The endpoint will parse the Polymarket URL/slug.
+- Use Server-Sent Events (SSE) to stream pipeline progress (Stage 1-6).
 
-#### [MODIFY] [predictor.py](file:///home/truonglx1/predict/src/predict_market_bot/pipeline/predictor.py)
-- Implement `_predict_xgboost()` using the `xgboost` library and `DMatrix`.
-- Implement `_calibrate_llm()` using Google Gemini API (`httpx`).
-- Refine `_extract_features()` to ensure all inputs for XGBoost are present.
-- Implement robust error handling for API timeouts/failures.
+#### [MODIFY] [orchestrator.py](file:///home/truonglx1/polymarket-prediction/src/predict_market_bot/orchestrator.py)
+- Refactor `run()` to accept an optional `market_id` or `slug`.
+- Add callback support to report progress to the API layer.
+
+#### [MODIFY] [scanner.py](file:///home/truonglx1/polymarket-prediction/src/predict_market_bot/pipeline/scanner.py)
+- Add `fetch_by_slug(slug: str)` to retrieve a specific market.
+
+---
+
+### Frontend (HTML/CSS/JS)
+
+#### [NEW] [index.html](file:///home/truonglx1/polymarket-prediction/frontend/index.html)
+- Main landing page with a premium, glassmorphism design.
+- URL input field and "Process" button.
+- Progress timeline visualization.
+- Results display area.
+
+#### [NEW] [style.css](file:///home/truonglx1/polymarket-prediction/frontend/style.css)
+- Custom Vanilla CSS design system.
+- Dark mode, gradients, and micro-animations.
+
+#### [NEW] [app.js](file:///home/truonglx1/polymarket-prediction/frontend/app.js)
+- Handle form submission and SSE connection.
+- Update UI states based on pipeline progress.
 
 ## Verification Plan
 
 ### Automated Tests
-- `tests/test_predictor.py`: Unit tests for feature extraction and calibration logic (mocked Gemini/XGBoost).
-- `scripts/try_predictor.py`: Demo script to show the full "Scan -> Research -> Predict" flow for a live market.
+- Create unit tests for the new `fetch_by_slug` method in `scanner.py`.
+- Run: `pytest tests/test_scanner.py`
 
 ### Manual Verification
-- Run the demo script with a real Gemini API key to see "Reasoning" from the LLM.
+1. Start the backend: `python -m predict_market_bot.api`
+2. Open the frontend in a browser.
+3. Input a valid Polymarket URL (e.g., `https://polymarket.com/event/will-the-fed-cut-rates-in-march`).
+4. Click "Process" and verify:
+   - Progress updates are displayed sequentially.
+   - Final results are rendered correctly in the UI.
