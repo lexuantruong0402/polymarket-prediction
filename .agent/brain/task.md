@@ -39,7 +39,6 @@
 - [ ] Integrate Order Placement CLOB API in `executor.py` (TODO)
 
 ## Phase 8: Create Frontend for Polymarket Prediction Bot
-
 - [x] Planning and Design <!-- id: 0 -->
     - [x] Research Polymarket URL structure and single market fetching <!-- id: 1 -->
     - [x] Design UI mockups and color palette <!-- id: 2 -->
@@ -58,3 +57,9 @@
     - [x] Add micro-animations and final styling touches <!-- id: 15 -->
     - [x] Create walkthrough artifact <!-- id: 16 -->
 
+## Phase 9: Refinement & Research Output
+- [x] Truncate backend pipeline after PREDICT stage <!-- id: 17 -->
+- [x] Enriched `COMPLETE` payload with signals and reasoning <!-- id: 18 -->
+- [x] Update frontend UI to show detailed analysis and links <!-- id: 19 -->
+- [x] Remove/hide execution stages from frontend timeline <!-- id: 20 -->
+- [x] Verify metrics and article links in UI <!-- id: 21 -->

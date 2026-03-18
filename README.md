@@ -2,16 +2,18 @@
 
 Phân tích, dự báo và thực thi giao dịch trên Prediction Market với kiểm soát rủi ro.
 
-## Kiến trúc Pipeline — 6 Stages
+## Kiến trúc Pipeline — 3 Stages Analysis
 
 ```
-Scan → Research → Predict → Risk → Execute → Compound
- │        │          │         │        │         │
- │ Lọc    │ NLP      │ XGBoost │ 5 risk │ CLOB    │ Post-mortem
- │ thị    │ sentiment│ + LLM   │ checks │ on-chain│ analysis
- │ trường │ analysis │ calib.  │ Kelly  │ + hedge │ → knowledge
- └────────┴──────────┴─────────┴────────┴─────────┴──────────────
+Scan → Research → Predict
+ │        │          │
+ │ Lọc    │ NLP      │ XGBoost
+ │ thị    │ sentiment│ + LLM
+ │ trường │ analysis │ calib.
+ └────────┴──────────┴─────────
 ```
+
+Bot hiện tại tập trung vào việc cung cấp các chỉ số phân tích chuyên sâu (Analysis Metrics) và nguồn tin tức (Research Sources) thay vì tự động thực thi giao dịch.
 
 ## Cài đặt
 
@@ -104,16 +106,10 @@ src/predict_market_bot/
 │   ├── models.py            # Domain dataclasses
 │   └── formulas.py          # 12 trading math functions
 ├── pipeline/
-│   ├── scanner.py           # Stage 1 — quét thị trường
-│   ├── researcher.py        # Stage 2 — NLP + social data (hỗ trợ historical)
-│   ├── predictor.py         # Stage 3 — XGBoost + LLM
-│   ├── risk_manager.py      # Stage 4 — 5 risk checks
-│   ├── executor.py          # Stage 5 — CLOB execution (hoặc MockExecutor)
-│   ├── compounder.py        # Stage 6 — post-mortem
-│   ├── backtester.py        # Điều phối backtest engine
-│   ├── fetcher.py           # Nạp dữ liệu Polymarket history
-│   └── mocks.py             # Giả lập các Stage cho simulation
-├── orchestrator.py           # Pipeline coordinator (hỗ trợ DI)
+│   ├── scanner.py           # Stage 1 — quét thị trường & lọc theo slug
+│   ├── researcher.py        # Stage 2 — NLP + thu thập link bài báo
+│   └── predictor.py         # Stage 3 — XGBoost + LLM Calibration & Reasoning
+├── orchestrator.py           # Pipeline coordinator (Analysis focus)
 ├── knowledge/store.py        # JSON knowledge base
 └── utils/
     ├── logger.py             # Structured logging

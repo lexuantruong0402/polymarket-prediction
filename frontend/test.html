@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>UI Render Test</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="container">
+        <h1 style="color: white; text-align: center;">UI Render Test</h1>
+        <section id="results" class="results">
+            <!-- Dynamic market cards will be injected here -->
+        </section>
+    </main>
+
+    <script>
+        // Mock data matching backend output format
+        const mockData = {
+            markets_scanned: 4,
+            predictions: [
+                {
+                    market_id: "658944",
+                    question: "Will Duke win the 2026 NCAA Tournament?",
+                    p_model: 0.52,
+                    p_market: 0.5,
+                    edge: 0.02,
+                    confidence: 0.712,
+                    status: "Yes",
+                    side: "YES",
+                    reasoning: "Model is slightly high; rising competition from rivals."
+                },
+                {
+                    market_id: "658931",
+                    question: "Will Michigan win the 2026 NCAA Tournament?",
+                    p_model: 0.518,
+                    p_market: 0.5,
+                    edge: 0.018,
+                    confidence: 0.7108,
+                    status: "No",
+                    side: "NO",
+                    reasoning: "Statistical edge exists, but competitors surging."
+                },
+                {
+                    market_id: "658941",
+                    question: "Will Arizona win the 2026 NCAA Tournament?",
+                    p_model: 0.515,
+                    p_market: 0.5,
+                    edge: 0.015,
+                    confidence: 0.45,
+                    status: "Not enough confident",
+                    side: "YES",
+                    reasoning: "Low confidence in model output."
+                }
+            ],
+            research: {
+                "658944": [{ source: "google", narrative: "Duke is favored", sentiment: 0.5, url: "https://example.com" }],
+                "658931": [],
+                "658941": [{ source: "newsapi", narrative: "Arizona trending", sentiment: -0.2, url: "https://example.com/2" }]
+            }
+        };
+
+        function renderResearchItems(researchData) {
+            if (researchData.length === 0) {
+                return '<p style="opacity: 0.6; font-size: 0.9rem;">No research articles found for this specific market.</p>';
+            }
+            return researchData.map(sig => {
+                if (!sig.url) return '';
+                const sentimentColor = sig.sentiment > 0.1 ? 'var(--success)' : sig.sentiment < -0.1 ? 'var(--error)' : 'white';
+                return `
+                    <div class="research-item" style="padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <h4 style="margin: 0; font-size: 1rem;">
+                                    <a href="${sig.url}" target="_blank" style="text-decoration: none; color: var(--secondary); transition: opacity 0.2s;">
+                                        ${sig.narrative}
+                                    </a>
+                                </h4>
+                                <p style="margin: 0.3rem 0 0; font-size: 0.8rem; opacity: 0.6;">Source: ${sig.source.toUpperCase()}</p>
+                            </div>
+                            <div style="margin-left: 1rem; font-weight: 600; font-size: 0.9rem; color: ${sentimentColor}">
+                                ${sig.sentiment > 0 ? '+' : ''}${sig.sentiment.toFixed(2)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        const resultsSection = document.getElementById('results');
+        resultsSection.style.display = 'block';
+        resultsSection.innerHTML = '';
+
+        mockData.predictions.forEach((pred, index) => {
+            const card = document.createElement('div');
+            card.className = 'glass results-card slide-up';
+            card.style.animationDelay = `${0.2 + (index * 0.1)}s`;
+
+            const statusClass = pred.status === 'Yes' ? 'status-yes' :
+                              pred.status === 'No' ? 'status-no' : 'status-low';
+
+            card.innerHTML = `
+                <div class="results-header">
+                    <h2>Market Analysis #${index + 1}</h2>
+                    <span class="badge ${statusClass}">${pred.status}</span>
+                </div>
+                
+                <div class="market-question">${pred.question}</div>
+
+                <div class="results-grid">
+                    <div class="result-item">
+                        <div class="result-label">Model Probability</div>
+                        <div class="result-value">${(pred.p_model * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Market Odds (Yes)</div>
+                        <div class="result-value">${(pred.p_market * 100).toFixed(1)}%</div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Edge</div>
+                        <div class="result-value" style="color: ${pred.edge > 0 ? 'var(--secondary)' : 'var(--error)'}">
+                            ${(pred.edge * 100).toFixed(1)}%
+                        </div>
+                    </div>
+                    <div class="result-item">
+                        <div class="result-label">Confidence Score</div>
+                        <div class="result-value">${(pred.confidence * 100).toFixed(0)}/100</div>
+                    </div>
+                    
+                    ${pred.reasoning ? `
+                    <div class="result-item" style="grid-column: 1 / -1; margin-top: 1rem;">
+                        <div class="result-label">LLM Calibration Reasoning</div>
+                        <div class="result-value" style="font-size: 1rem; font-weight: 400; margin-top: 0.5rem; opacity: 0.8; line-height: 1.6;">
+                            ${pred.reasoning}
+                        </div>
+                    </div>` : ''}
+                </div>
+
+                <div class="research-section" style="margin-top: 2rem;">
+                    <h3 style="margin-bottom: 1rem; font-size: 1.1rem; opacity: 0.9;">Research Sources</h3>
+                    <div class="research-list">
+                        ${renderResearchItems(mockData.research[pred.market_id] || [])}
+                    </div>
+                </div>
+            `;
+            resultsSection.appendChild(card);
+        });
+
+        console.log('Rendered', mockData.predictions.length, 'cards successfully');
+    </script>
+</body>
+</html>

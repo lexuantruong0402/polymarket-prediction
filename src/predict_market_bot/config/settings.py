@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # src/predict_market_bot/config/settings.py -> root is 4 levels up
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -27,13 +27,13 @@ class BotSettings(BaseSettings):
     )
     api_key: str = Field("", description="API key for authenticated endpoints")
     news_api_key: str | None = Field(
-        None, description="API key for newsapi.org", validation_alias="NEWS_API_KEY"
+        None, description="API key for newsapi.org"
     )
     openai_api_key: str | None = Field(
-        None, description="Optional API key for LLM-based sentiment", validation_alias="OPENAI_API_KEY"
+        None, description="Optional API key for LLM-based sentiment"
     )
     gemini_api_key: str | None = Field(
-        None, description="Google Gemini API key for calibration", validation_alias="GEMINI_API_KEY"
+        None, description="Google Gemini API key for calibration"
     )
     model_path: str = Field(
         "data/models/xgboost_market_v1.json",
@@ -62,7 +62,11 @@ class BotSettings(BaseSettings):
     log_level: str = Field("INFO", description="Logging level")
     log_format: str = Field("json", description="Log output format (json | console)")
 
-    model_config = {"env_file": str(ENV_FILE), "env_file_encoding": "utf-8"}
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
 
 # Singleton — import and use directly

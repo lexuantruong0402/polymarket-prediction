@@ -55,19 +55,11 @@ class MarketPredictor:
             p_raw = self._xgboost_predict(features)
             
             # 2. Expert Calibration (LLM)
-            p_calibrated = await self._llm_calibrate(p_raw, market, signals)
-            
-            # 3. Confidence Gating
-            confidence = self._compute_confidence(features, p_calibrated)
+            p_calibrated, reasoning = await self._llm_calibrate(p_raw, market, signals)
+            features["llm_reasoning"] = reasoning
 
-            if confidence < self.confidence_threshold:
-                logger.debug(
-                    "prediction_skipped",
-                    market_id=market.id,
-                    confidence=round(confidence, 4),
-                    threshold=self.confidence_threshold,
-                )
-                continue
+            # 3. Confidence Calculation (No longer gating)
+            confidence = self._compute_confidence(features, p_calibrated)
 
             p_market = market.odds.get("YES", 0.5)
             edge = market_edge(p_calibrated, p_market)
@@ -146,11 +138,15 @@ class MarketPredictor:
         p_raw: float,
         market: Market,
         signals: list[Signal],
-    ) -> float:
-        """Calibrate probability using Google Gemini Pro."""
+    ) -> tuple[float, str]:
+        """Calibrate probability using Google Gemini Pro.
+        
+        Returns:
+            Tuple of (calibrated_p, reasoning)
+        """
         if not self.gemini_key:
             logger.warning("gemini_key_missing", status="skipping_calibration")
-            return p_raw
+            return p_raw, "Gemini API key missing"
 
         # Prepare context for LLM
         narratives = "\n".join([f"- {s.source}: {s.narrative}" for s in signals[:5]])
@@ -191,18 +187,19 @@ class MarketPredictor:
                 data = json.loads(content)
                 
                 calibrated = float(data.get("calibrated_p", p_raw))
+                reasoning = data.get("reasoning", "No reasoning provided")
                 logger.info(
                     "llm_calibration_success",
                     market_id=market.id,
                     p_raw=round(p_raw, 4),
                     p_calibrated=round(calibrated, 4),
-                    reasoning=data.get("reasoning")
+                    reasoning=reasoning
                 )
-                return np.clip(calibrated, 0.01, 0.99)
+                return float(np.clip(calibrated, 0.01, 0.99)), reasoning
 
         except Exception as e:
             logger.error("llm_calibration_failed", error=str(e), market_id=market.id)
-            return p_raw
+            return p_raw, f"Calibration failed: {str(e)}"
 
     @staticmethod
     def _compute_confidence(features: dict[str, float], p_calibrated: float) -> float:

@@ -1,50 +1,65 @@
-# Walkthrough: Polymarket Prediction Bot Frontend
+# Walkthrough: Refined Analysis and Metrics Output
 
-I have successfully created a premium frontend for the Polymarket prediction bot project. This interface allows users to input a Polymarket event URL and see the multi-stage evaluation process in real-time.
+I have successfully refocused the Polymarket prediction bot to prioritize detailed analysis and research sources. The pipeline now stops after the Prediction stage and provides enriched data in the final results.
 
 ## Changes Made
 
-### 1. Backend Enhancements
-- **FastAPI Server**: Created [api.py](file:///home/truonglx1/polymarket-prediction/src/predict_market_bot/api.py) to provide a streaming endpoint for pipeline progress.
-- **Orchestrator Refactor**: Updated [orchestrator.py](file:///home/truonglx1/polymarket-prediction/src/predict_market_bot/orchestrator.py) to support targeted market analysis by slug and progress reporting via callbacks.
-- **Scanner Update**: Added `fetch_by_slug` to [scanner.py](file:///home/truonglx1/polymarket-prediction/src/predict_market_bot/pipeline/scanner.py) to retrieve specific market data from the Polymarket API.
+### 1. Backend Pipeline Truncation & Enrichment
+- **Orchestrator Refinement**: Modified `orchestrator.py` to stop after Stage 3 (PREDICT).
+- **Data Enrichment**: The `COMPLETE` payload now includes:
+    - **Detailed Predictions**: High-fidelity metrics (Probability, Market Odds, Edge, Confidence) and **LLM Calibration Reasoning**.
+    - **Research Sources**: A complete list of analyzed articles with titles, sentiment scores, and clickable URLs.
 
-### 2. Premium Frontend
-- **Design System**: Implemented a modern, dark-themed UI using **Glassmorphism** and **Inter/Outfit** typography in [style.css](file:///home/truonglx1/polymarket-prediction/frontend/style.css).
-- **Interactive Dashboard**: Created a responsive layout in [index.html](file:///home/truonglx1/polymarket-prediction/frontend/index.html) including:
-    - A animated progress timeline for the 6 pipeline stages.
-    - Real-time status updates using **Server-Sent Events (SSE)** in [app.js](file:///home/truonglx1/polymarket-prediction/frontend/app.js).
-    - A results summary card for completed analysis.
-
-### Full Pipeline Test (Real Data)
-Successfully verified the full pipeline using the **Oscars 2026** market with live API keys:
-- **SCAN**: 5 sub-markets found for the event.
-- **RESEARCH**: 5 sentiment/news signals gathered using live API.
-- **PREDICT**: 5 model-calibrated predictions generated with Gemini calibration.
-- **RISK**: 2 trades approved (3 rejected by risk controls).
-- **EXECUTE**: 2 trades simulated successfully.
-
-The streaming SSE logic correctly delivered updates for each stage to the frontend.
+### 2. Frontend Integration
+- **3-Stage Timeline**: Updated `index.html` and `app.js` to reflect the shorter analysis pipeline (Scan → Research → Predict).
+- **Enriched Results UI**: 
+    - Added display for LLM reasoning to explain probability calibration.
+    - Implemented a "Research Sources" section with direct links to analyzed articles.
+    - Removed execution-specific UI components to focus on analytical insights.
 
 ## Verification Results
 
-### Backend API Verification
-Used `curl` to verify the streaming response from the backend:
-```bash
-$ curl -N "http://localhost:8000/process?url=https://polymarket.com/event/oscars-2026-best-actor-winner"
-data: {"stage": "SCAN", "data": {"status": "started", "slug": "oscars-2026-best-actor-winner"}}
-data: {"stage": "SCAN", "data": {"status": "complete", "count": 5}}
-data: {"stage": "RESEARCH", "data": {"status": "started"}}
-...
-data: {"stage": "COMPLETE", "data": {"markets_scanned": 5, "predictions": 5, "approved": 2, ...}}
+### End-to-End Pipeline Test
+Tested with the event: `microstrategy-sell-any-bitcoin-in-2025`.
+
+**Pipeline Output (Verified via SSE):**
+```json
+{
+  "stage": "COMPLETE",
+  "data": {
+    "markets_scanned": 3,
+    "predictions": [
+      {
+        "market_id": "692250",
+        "p_model": 0.49,
+        "p_market": 0.5,
+        "edge": -0.01,
+        "confidence": 0.706,
+        "side": "NO",
+        "reasoning": "Saylor's dogmatic HODL stance conflicts with the 2022 tax-loss harvesting precedent over a multi-year horizon."
+      }
+    ],
+    "research": {
+      "692250": [
+        {
+          "source": "google",
+          "narrative": "MicroStrategy Will Never Sell Its Bitcoin, Saylor Suggests",
+          "sentiment": 0.0,
+          "url": "https://bitcoinmagazine.com/business/microstrategy-will-never-sell-its-bitcoin-saylor-suggests"
+        }
+      ]
+    }
+  }
+}
 ```
-The API correctly extracts the slug, triggers the orchestrator, and streams JSON updates for each stage of the pipeline.
 
-### Frontend UI Verification
-- Validated CSS rendering and button interactions.
-- Confirmed SSE connection handling in the browser logic.
+### UI Verification
+- [x] Timeline correctly stops at Stage 3.
+- [x] Confidence levels and Edge badges render with updated data.
+- [x] Research links open in new tabs as expected.
+- [x] LLM reasoning provides valuable qualitative context for the numerical analysis.
 
-> [!NOTE]
-> To run the project locally:
-> 1. Backend: `python3 -m predict_market_bot.api` (Port 8000)
-> 2. Frontend: `python3 -m http.server 8080` in the `frontend/` directory.
+---
+> [!TIP]
+> To run the analysis bot locally with the latest refinements, use:
+> `PYTHONPATH=src python3 -m predict_market_bot.api`

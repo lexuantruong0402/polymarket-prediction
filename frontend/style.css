@@ -248,6 +248,15 @@ button:disabled {
 /* Results Card */
 .results-card {
     padding: 2.5rem;
+    margin-bottom: 2rem;
+}
+
+.market-question {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--text);
+    line-height: 1.4;
 }
 
 .results-header {
@@ -259,11 +268,29 @@ button:disabled {
 
 .badge {
     padding: 0.4rem 1rem;
-    background: rgba(16, 185, 129, 0.2);
-    color: var(--success);
     border-radius: 99px;
     font-size: 0.85rem;
     font-weight: 600;
+}
+
+.badge-complete {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--success);
+}
+
+.status-yes {
+    background: rgba(16, 185, 129, 0.2) !important;
+    color: var(--success) !important;
+}
+
+.status-no {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: var(--error) !important;
+}
+
+.status-low {
+    background: rgba(148, 163, 184, 0.2) !important;
+    color: var(--text-muted) !important;
 }
 
 .results-grid {
@@ -325,4 +352,21 @@ button:disabled {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+/* Research List Styles */
+.research-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.research-item {
+    transition: background 0.3s ease;
+}
+
+.research-item:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.research-item a:hover {
+    opacity: 0.8;
 }

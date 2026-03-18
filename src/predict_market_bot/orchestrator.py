@@ -91,9 +91,18 @@ class PipelineOrchestrator:
             markets = await self.scanner.scan()
 
         if not markets:
-            logger.warning("pipeline_aborted", reason="No markets passed scan filters")
+            logger.warning("pipeline_aborted", reason="No markets found")
             await report_progress("SCAN", {"status": "aborted", "reason": "no_markets"})
             return {"aborted": True, "reason": "no_markets"}
+        
+        # Limit to top 4 markets by YES odds (robust to case and common labels)
+        def get_yes_odds(m):
+            for label in ["Yes", "YES", "True", "TRUE"]:
+                if label in m.odds:
+                    return m.odds[label]
+            return 0.0
+
+        markets = sorted(markets, key=get_yes_odds, reverse=True)[:4]
         
         await report_progress("SCAN", {"status": "complete", "count": len(markets)})
 
@@ -109,77 +118,41 @@ class PipelineOrchestrator:
         predictions = await self.predictor.predict(markets, signals_map)
         await report_progress("PREDICT", {"status": "complete", "predictions": len(predictions)})
         
-        if not predictions:
-            logger.info("pipeline_complete", reason="No predictions above confidence threshold")
-            summary = {
-                "markets_scanned": len(markets),
-                "predictions": 0,
-                "approved": 0,
-                "rejected": 0,
-                "trades_executed": 0,
-                "insights_generated": 0,
-                "performance": self.tracker.summary(),
-            }
-            await report_progress("COMPLETE", summary)
-            return summary
-
-        # ── Stage 4: Risk ────────────────────────────────────────────
-        logger.info("stage", name="4/6 RISK")
-        await report_progress("RISK", {"status": "started"})
-        evaluated = self.risk_manager.evaluate_batch(predictions, self.portfolio)
-        approved = [(pred, risk) for pred, risk in evaluated if risk.passed]
-        rejected = [(pred, risk) for pred, risk in evaluated if not risk.passed]
-
-        logger.info(
-            "risk_summary",
-            approved=len(approved),
-            rejected=len(rejected),
-        )
-        await report_progress("RISK", {"status": "complete", "approved": len(approved), "rejected": len(rejected)})
-
-        if not approved:
-            logger.info("pipeline_complete", reason="All predictions rejected by risk checks")
-            summary = {
-                "markets_scanned": len(markets),
-                "predictions": len(predictions),
-                "approved": 0,
-                "rejected": len(rejected),
-                "trades_executed": 0,
-                "insights_generated": 0,
-                "performance": self.tracker.summary(),
-            }
-            await report_progress("COMPLETE", summary)
-            return summary
-
-        # ── Stage 5: Execute ─────────────────────────────────────────
-        logger.info("stage", name="5/6 EXECUTE")
-        await report_progress("EXECUTE", {"status": "started"})
-        trade_results = await self.executor.execute_batch(approved)
-
-        # Update portfolio state
-        for result in trade_results:
-            self.portfolio.current_exposure += result.order.size
-        
-        await report_progress("EXECUTE", {"status": "complete", "trades": len(trade_results)})
-
-        # ── Stage 6: Compound ────────────────────────────────────────
-        logger.info("stage", name="6/6 COMPOUND")
-        await report_progress("COMPOUND", {"status": "started"})
-        insights = self.compounder.analyze(trade_results)
-        await report_progress("COMPOUND", {"status": "complete", "insights": len(insights)})
-
         # ── Summary ──────────────────────────────────────────────────
+        def get_status(p):
+            if p.confidence < settings.confidence_threshold:
+                return "Not enough confident"
+            return "Yes" if p.edge > 0 else "No"
+
         summary = {
             "markets_scanned": len(markets),
-            "predictions": len(predictions),
-            "approved": len(approved),
-            "rejected": len(rejected),
-            "trades_executed": len(trade_results),
-            "insights_generated": len(insights),
+            "predictions": [
+                {
+                    "market_id": p.market_id,
+                    "question": next((m.question for m in markets if m.id == p.market_id), "Unknown"),
+                    "p_model": p.p_model,
+                    "p_market": p.p_market,
+                    "edge": p.edge,
+                    "confidence": p.confidence,
+                    "status": get_status(p),
+                    "side": p.side.value if hasattr(p.side, 'value') else p.side,
+                    "reasoning": p.features.get("llm_reasoning", "No reasoning provided")
+                } for p in predictions
+            ],
+            "research": {
+                m.id: [
+                    {
+                        "source": s.source,
+                        "narrative": s.narrative,
+                        "sentiment": s.sentiment_score,
+                        "url": s.metadata.get("url")
+                    } for s in signals_map.get(m.id, [])
+                ] for m in markets
+            },
             "performance": self.tracker.summary(),
         }
 
-        logger.info("pipeline_complete", **summary)
+        logger.info("pipeline_complete", predictions=len(predictions))
         await report_progress("COMPLETE", summary)
         return summary
 
